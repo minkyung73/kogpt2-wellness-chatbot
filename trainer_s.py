@@ -9,7 +9,8 @@ from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.core.lightning import LightningModule
 from torch.utils.data import DataLoader, Dataset
-from transformers.optimization import AdamW, get_cosine_schedule_with_warmup
+from transformers.optimization import AdamW
+from transformers.optimization import get_cosine_schedule_with_warmup
 from transformers import PreTrainedTokenizerFast, GPT2LMHeadModel
 
 parser = argparse.ArgumentParser(description='Simsimi based on KoGPT-2')
@@ -124,8 +125,8 @@ class KoGPT2Chat(LightningModule):
         parser = argparse.ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--max-len',
                             type=int,
-                            default=64,
-                            help='max sentence length on input (default: 32)')
+                            default=64, # 입력할 수 있는 문자의 길이를 32->64로 늘려줌
+                            help='max sentence length on input (default: 64)')
 
         parser.add_argument('--batch-size',
                             type=int,
@@ -191,25 +192,46 @@ class KoGPT2Chat(LightningModule):
             shuffle=True, collate_fn=self._collate_fn)
         return train_dataloader
 
+    # def chat(self, sent='0'):
+    #     tok = TOKENIZER
+    #     sent_tokens = tok.tokenize(sent)
+    #     with torch.no_grad():
+    #       p = input('user > ')
+    #       q = p.strip()
+    #       a = ''
+    #       while 1:
+    #         input_ids = torch.LongTensor(tok.encode(U_TKN + q + SENT + sent + S_TKN + a)).unsqueeze(dim=0)
+    #         pred = self(input_ids)
+    #         gen = tok.convert_ids_to_tokens(
+    #           torch.argmax(
+    #             pred,
+    #             dim=-1).squeeze().numpy().tolist())[-1]
+    #         if gen == EOS:
+    #           break
+    #         a += gen.replace('▁', ' ')
+    #       print("Chatbot > {}".format(a.strip()))
+    #     return q
+
     def chat(self, sent='0'):
         tok = TOKENIZER
         sent_tokens = tok.tokenize(sent)
         with torch.no_grad():
-          p = input('user > ')
-          q = p.strip()
-          a = ''
-          while 1:
-            input_ids = torch.LongTensor(tok.encode(U_TKN + q + SENT + sent + S_TKN + a)).unsqueeze(dim=0)
-            pred = self(input_ids)
-            gen = tok.convert_ids_to_tokens(
-              torch.argmax(
-                pred,
-                dim=-1).squeeze().numpy().tolist())[-1]
-            if gen == EOS:
-              break
-            a += gen.replace('▁', ' ')
-          print("Chatbot > {}".format(a.strip()))
-        return q
+            while 1:
+                q = input('user > ').strip()
+                if q == 'quit':
+                    break
+                a = ''
+                while 1:
+                    input_ids = torch.LongTensor(tok.encode(U_TKN + q + SENT + sent + S_TKN + a)).unsqueeze(dim=0)
+                    pred = self(input_ids)
+                    gen = tok.convert_ids_to_tokens(
+                      torch.argmax(
+                        pred,
+                        dim=-1).squeeze().numpy().tolist())[-1]
+                    if gen == EOS:
+                      break
+                    a += gen.replace('▁', ' ')
+                print("Chatbot > {}".format(a.strip()))
 
 
 parser = KoGPT2Chat.add_model_specific_args(parser)
